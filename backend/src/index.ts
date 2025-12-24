@@ -121,11 +121,70 @@ app.get('/api/models', async (req, res) => {
 
 // Chat proxy for models
 app.post('/api/chat', async (req, res) => {
-  const { model, messages, apiKey } = req.body;
+  const { model, messages, apiKey, source } = req.body;
   if (!model || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'model and messages (array) required' });
   }
 
+  // Handle Hugging Face Models
+  if (source === 'huggingface') {
+    const effectiveApiKey = apiKey || process.env.HUGGINGFACE_API_KEY;
+    if (!effectiveApiKey) {
+      return res.status(401).json({ error: 'Hugging Face API token required. Please add it in Settings.' });
+    }
+
+    try {
+      // Use OpenAI-compatible endpoint for better stability
+      const response = await axios.post(`https://api-inference.huggingface.co/v1/chat/completions`, {
+        model,
+        messages,
+        max_tokens: 1024,
+        temperature: 0.7
+      }, {
+        headers: {
+          'Authorization': `Bearer ${effectiveApiKey}`,
+          'Content-Type': 'application/json'
+        },
+      });
+
+      return res.json(response.data);
+    } catch (error: any) {
+      console.error('HF Chat error:', error.response?.data || error.message);
+      return res.status(error.response?.status || 500).json({
+        error: 'Hugging Face API error',
+        details: error.response?.data?.error || error.message
+      });
+    }
+  }
+
+  // Handle GitHub Models (OpenAI-compatible)
+  if (source === 'github') {
+    const effectiveApiKey = apiKey || process.env.GITHUB_TOKEN || process.env.GITHUB_API_KEY;
+    if (!effectiveApiKey) {
+      return res.status(401).json({ error: 'GitHub Personal Access Token required. Please add it in Settings.' });
+    }
+
+    try {
+      const response = await axios.post('https://models.inference.ai.azure.com/chat/completions', {
+        model,
+        messages,
+      }, {
+        headers: {
+          'Authorization': `Bearer ${effectiveApiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      return res.json(response.data);
+    } catch (error: any) {
+      console.error('GitHub Models error:', error.response?.data || error.message);
+      return res.status(error.response?.status || 500).json({
+        error: 'GitHub Models API error',
+        details: error.response?.data?.error?.message || error.message
+      });
+    }
+  }
+
+  // Default: OpenRouter Logic
   const effectiveApiKey = apiKey || process.env.OPENROUTER_API_KEY;
 
   if (!effectiveApiKey) {

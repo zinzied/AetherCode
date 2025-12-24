@@ -63,6 +63,19 @@ function formatContext(tokens: number): string {
   return tokens.toString();
 }
 
+async function scrapeGitHubModels(): Promise<any[]> {
+  return [
+    { id: 'gpt-4o', name: 'GPT-4o (GitHub)', description: 'Fast, high-performance OpenAI model' },
+    { id: 'gpt-4o-mini', name: 'GPT-4o mini (GitHub)', description: 'Lightweight OpenAI model' },
+    { id: 'Llama-3.1-405B-Instruct', name: 'Llama 3.1 405B', description: 'Meta\'s largest open model' },
+    { id: 'Llama-3.1-70B-Instruct', name: 'Llama 3.1 70B', description: 'Powerful Meta model' },
+    { id: 'Mistral-large-2407', name: 'Mistral Large 2', description: 'Mistral AI flagship model' },
+    { id: 'Phi-3.5-MoE-instruct', name: 'Phi 3.5 MoE', description: 'Microsoft multi-expert model' },
+    { id: 'DeepSeek-V3', name: 'DeepSeek V3', description: 'Powerful open-weights model' },
+    { id: 'DeepSeek-R1', name: 'DeepSeek R1', description: 'Reasoning model from DeepSeek' }
+  ];
+}
+
 async function scrapeOpenRouter(): Promise<OpenRouterModel[]> {
   try {
     const response = await axios.get<OpenRouterResponse>('https://openrouter.ai/api/v1/models');
@@ -74,7 +87,7 @@ async function scrapeOpenRouter(): Promise<OpenRouterModel[]> {
       if (!model.pricing) return false;
       const promptValue = typeof model.pricing.prompt === 'string'
         ? parseFloat(model.pricing.prompt)
-      : model.pricing.prompt;
+        : model.pricing.prompt;
       return promptValue === 0;
     });
   } catch (error) {
@@ -87,21 +100,24 @@ export async function scrapeModels(): Promise<{ count: number }> {
   try {
     console.log('Starting model scraping...');
     scraperEvents.emit('progress', { status: 'started', message: 'Starting model scraping...' });
-    
+
     // Fetch models from both sources
     scraperEvents.emit('progress', { status: 'fetching', message: 'Fetching models from HuggingFace...' });
     const huggingFaceModels = await scrapeHuggingFace();
-    
+
     scraperEvents.emit('progress', { status: 'fetching', message: 'Fetching models from OpenRouter...' });
     const openRouterModels = await scrapeOpenRouter();
-    
-    scraperEvents.emit('progress', { 
+
+    scraperEvents.emit('progress', { status: 'fetching', message: 'Fetching models from GitHub...' });
+    const githubModels = await scrapeGitHubModels();
+
+    scraperEvents.emit('progress', {
       status: 'processing',
-      message: `Processing ${huggingFaceModels.length + openRouterModels.length} models...`
+      message: `Processing ${huggingFaceModels.length + openRouterModels.length + githubModels.length} models...`
     });
-    
+
     let count = 0;
-    
+
     const insertStmt = db.prepare(`
       INSERT OR IGNORE INTO models (
         name, description, license, framework, task, category,
@@ -111,7 +127,7 @@ export async function scrapeModels(): Promise<{ count: number }> {
 
     // Clear existing HuggingFace models to avoid duplicates
     db.prepare('DELETE FROM models WHERE source = ?').run('huggingface');
-    
+
     // Process HuggingFace models
     for (const model of huggingFaceModels) {
       try {
@@ -129,7 +145,7 @@ export async function scrapeModels(): Promise<{ count: number }> {
           model.lastModified || null,
           'huggingface'
         );
-        
+
         if (result.changes > 0) {
           count++;
           scraperEvents.emit('progress', {
@@ -146,7 +162,7 @@ export async function scrapeModels(): Promise<{ count: number }> {
 
     // Clear existing OpenRouter models to avoid duplicates
     db.prepare('DELETE FROM models WHERE source = ?').run('openrouter');
-    
+
     // Process OpenRouter models
     for (const model of openRouterModels) {
       try {
@@ -164,33 +180,59 @@ export async function scrapeModels(): Promise<{ count: number }> {
           new Date().toISOString(),
           'openrouter'
         );
-        
+
         if (result.changes > 0) {
           count++;
           scraperEvents.emit('progress', {
             status: 'processing',
             message: `Added ${count} models...`,
             current: count,
-            total: huggingFaceModels.length + openRouterModels.length
+            total: huggingFaceModels.length + openRouterModels.length + githubModels.length
           });
         }
       } catch (dbError) {
         console.error(`Error inserting OpenRouter model ${model.id}:`, dbError);
       }
     }
-    
-    scraperEvents.emit('progress', { 
+
+    // Clear existing GitHub models
+    db.prepare('DELETE FROM models WHERE source = ?').run('github');
+
+    // Process GitHub models
+    for (const model of githubModels) {
+      try {
+        insertStmt.run(
+          model.id,
+          model.description || '',
+          'free',
+          'GitHub',
+          'chat',
+          '128k',
+          '',
+          '',
+          `https://github.com/marketplace/models/azureml/${model.id}`,
+          0,
+          new Date().toISOString(),
+          'github'
+        );
+        count++;
+      } catch (dbError) {
+        console.error(`Error inserting GitHub model ${model.id}:`, dbError);
+      }
+    }
+
+    scraperEvents.emit('progress', {
       status: 'completed',
       message: `Scraping completed. Added ${count} new models.`,
       current: huggingFaceModels.length + openRouterModels.length,
       total: huggingFaceModels.length + openRouterModels.length
     });
-    
+
     console.log(`Scraping completed. Added ${count} new models.`);
     return { count };
   } catch (error) {
     console.error('Scraping error:', error);
-    scraperEvents.emit('progress', { 
+    scraperEvents.emit('progress', {
       status: 'error',
       message: error instanceof Error ? error.message : 'Unknown error occurred',
       current: 0,

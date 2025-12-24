@@ -17,6 +17,7 @@ interface Model {
   demo_url: string;
   stars: number;
   last_updated: string;
+  source: string;
 }
 
 function App() {
@@ -40,7 +41,8 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [userKeys, setUserKeys] = useState({
     openrouter: localStorage.getItem('openrouter_api_key') || '',
-    huggingface: localStorage.getItem('huggingface_api_key') || ''
+    huggingface: localStorage.getItem('huggingface_api_key') || '',
+    github: localStorage.getItem('github_api_key') || ''
   });
   const [credits, setCredits] = useState(() => {
     const saved = localStorage.getItem('user_credits');
@@ -51,6 +53,7 @@ function App() {
   useEffect(() => {
     localStorage.setItem('openrouter_api_key', userKeys.openrouter);
     localStorage.setItem('huggingface_api_key', userKeys.huggingface);
+    localStorage.setItem('github_api_key', userKeys.github);
   }, [userKeys]);
 
   useEffect(() => {
@@ -148,10 +151,15 @@ function App() {
   }
 
   if (view === 'chat' && selectedModel) {
+    const activeKey =
+      selectedModel.source === 'huggingface' ? userKeys.huggingface :
+        selectedModel.source === 'github' ? userKeys.github :
+          userKeys.openrouter;
+
     return (
       <ChatEditor
         model={selectedModel}
-        apiKey={userKeys.openrouter}
+        apiKey={activeKey}
         credits={credits}
         setCredits={setCredits}
         onBack={() => setView('library')}
@@ -272,7 +280,7 @@ function App() {
             <option value="bsd">BSD</option>
             <option value="cc-by">CC-BY</option>
             <option value="cc0">CC0</option>
-            <option value="free">Free (OpenRouter)</option>
+            <option value="free">Free Inference (OpenRouter)</option>
           </select>
         </div>
 
@@ -463,6 +471,17 @@ function App() {
                 placeholder="hf_..."
                 value={userKeys.huggingface}
                 onChange={e => setUserKeys(prev => ({ ...prev, huggingface: e.target.value }))}
+              />
+            </div>
+
+            <div className="form-group" style={{ marginTop: '1.5rem' }}>
+              <label className="filter-label">GitHub PAT (Token)</label>
+              <input
+                type="password"
+                className="input-styled"
+                placeholder="github_pat_..."
+                value={userKeys.github}
+                onChange={e => setUserKeys(prev => ({ ...prev, github: e.target.value }))}
               />
             </div>
 

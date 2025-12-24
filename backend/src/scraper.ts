@@ -39,6 +39,7 @@ async function scrapeHuggingFace(): Promise<HuggingFaceModel[]> {
       limit: 100,
       sort: 'downloads',
       direction: -1,
+      tags: 'text-generation-inference'
     },
   });
 

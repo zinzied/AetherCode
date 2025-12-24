@@ -134,8 +134,8 @@ app.post('/api/chat', async (req, res) => {
     }
 
     try {
-      // Use OpenAI-compatible endpoint for better stability
-      const response = await axios.post(`https://api-inference.huggingface.co/v1/chat/completions`, {
+      // Use the new standardized router endpoint
+      const response = await axios.post(`https://router.huggingface.co/v1/chat/completions`, {
         model,
         messages,
         max_tokens: 1024,
@@ -143,7 +143,8 @@ app.post('/api/chat', async (req, res) => {
       }, {
         headers: {
           'Authorization': `Bearer ${effectiveApiKey}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'x-wait-for-model': 'true'
         },
       });
 

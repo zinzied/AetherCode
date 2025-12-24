@@ -1,6 +1,10 @@
 # AetherCode ☁️
 
+
+Turn your browser into a free editor by using free test models.
+
 A powerful, modern web interface for discovering and interacting with free and open-source AI models. Built with React, Express, and SQLite.
+
 
 ## ✨ Key Features
 

@@ -208,7 +208,10 @@ export default function ChatEditor({ model, apiKey, credits, setCredits, onBack 
 
     const handleSendMessage = async () => {
         if (!chatInput.trim()) return;
-        const isFullFree = model.name.toLowerCase().includes('free') || model.license?.toLowerCase() === 'free';
+        const isFullFree = model.name.toLowerCase().includes('free') ||
+            model.license?.toLowerCase() === 'free' ||
+            model.source === 'huggingface' ||
+            model.source === 'github';
         if (!isFullFree && credits <= 0) {
             setChatMessages(prev => [...prev, { role: 'assistant', content: 'You have run out of credits. Please use a "full free" model or add your own API key in Settings.' }]);
             return;

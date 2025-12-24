@@ -57,7 +57,9 @@ app.get('/api/models', async (req, res) => {
 
     // License filter
     const license = req.query.license as string;
-    if (license) {
+    if (license === 'free') {
+      whereClause += " AND (license = 'free' OR source = 'huggingface' OR source = 'github')";
+    } else if (license) {
       whereClause += ' AND license = ?';
       whereParams.push(license);
       selectParams.push(license);

@@ -280,7 +280,7 @@ function App() {
             <option value="bsd">BSD</option>
             <option value="cc-by">CC-BY</option>
             <option value="cc0">CC0</option>
-            <option value="free">Free Inference (OpenRouter)</option>
+            <option value="free">Free Inference (All Providers)</option>
           </select>
         </div>
 

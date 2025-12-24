@@ -186,13 +186,50 @@ export default function ChatEditor({ model, apiKey, credits, setCredits, onBack 
         return diff;
     };
 
+    const applySearchReplace = (currentCode: string, editBlock: string): string => {
+        const lines = editBlock.split('\n');
+        let result = currentCode;
+        let i = 0;
+        while (i < lines.length) {
+            if (lines[i].includes('<<<<<<< SEARCH')) {
+                let searchContent = [];
+                i++;
+                while (i < lines.length && !lines[i].includes('=======')) {
+                    searchContent.push(lines[i]);
+                    i++;
+                }
+                let replaceContent = [];
+                i++;
+                while (i < lines.length && !lines[i].includes('>>>>>>> REPLACE')) {
+                    replaceContent.push(lines[i]);
+                    i++;
+                }
+                const searchText = searchContent.join('\n');
+                const replaceText = replaceContent.join('\n');
+                if (searchText.trim() === '') {
+                    // Prepend if search is empty
+                    result = replaceText + '\n' + result;
+                } else if (result.includes(searchText)) {
+                    result = result.replace(searchText, replaceText);
+                }
+            }
+            i++;
+        }
+        return result;
+    };
+
     const applyEdit = (code: string) => {
         if (!selectedFile) return;
+        let newCode = code;
+        if (code.includes('<<<<<<< SEARCH')) {
+            newCode = applySearchReplace(selectedFile.content || '', code);
+        }
+
         const newFiles = [...files];
         const updateNode = (nodes: FileNode[]) => {
             for (const node of nodes) {
                 if (node.path === selectedFile.path) {
-                    node.content = code;
+                    node.content = newCode;
                     return true;
                 }
                 if (node.children && updateNode(node.children)) return true;
@@ -201,7 +238,7 @@ export default function ChatEditor({ model, apiKey, credits, setCredits, onBack 
         };
         updateNode(newFiles);
         setFiles(newFiles);
-        setEditContent(code);
+        setEditContent(newCode);
         setPendingCode(null);
         setChatMessages(prev => [...prev, { role: 'assistant', content: '✅ Code updated successfully.' }]);
     };
@@ -228,7 +265,7 @@ export default function ChatEditor({ model, apiKey, credits, setCredits, onBack 
         if (projectContext) {
             contextMessages.unshift({
                 role: 'user',
-                content: `PROJECT ARCHITECTURE & SOURCE CODE: \n${projectContext} \n\nINSTRUCTIONS: You are an expert developer. Answer based on this context.`
+                content: `PROJECT ARCHITECTURE & SOURCE CODE: \n${projectContext} \n\nINSTRUCTIONS: You are an expert developer. To modify code, you MUST use one of these formats:\n1. For total rewrites, provide the FULL file content in a code block.\n2. For specific changes, use SEARCH/REPLACE blocks:\n<<<<<<< SEARCH\n[exact code to find]\n=======\n[new code]\n>>>>>>> REPLACE\nAnswer based on this context.`
             });
         }
         if (selectedFile) {

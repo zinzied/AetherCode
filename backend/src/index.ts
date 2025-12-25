@@ -22,7 +22,18 @@ db.exec(schema);
 app.use(cors());
 app.use(helmet());
 app.use(morgan('combined'));
-app.use(express.json());
+
+// Add simple size logger before parser
+app.use((req, res, next) => {
+  const size = req.headers['content-length'];
+  if (size && parseInt(size) > 1024 * 1024) {
+    console.log(`[Backend] Large request incoming: ${size} bytes`);
+  }
+  next();
+});
+
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
 app.get('/api/models', async (req, res) => {
   try {
@@ -152,7 +163,7 @@ app.post('/api/chat', async (req, res) => {
 
       return res.json(response.data);
     } catch (error: any) {
-      console.error('HF Chat error:', error.response?.data || error.message);
+      console.error('HF Chat error:', error.response?.status, error.response?.data || error.message);
       return res.status(error.response?.status || 500).json({
         error: 'Hugging Face API error',
         details: error.response?.data?.error || error.message
@@ -179,7 +190,7 @@ app.post('/api/chat', async (req, res) => {
       });
       return res.json(response.data);
     } catch (error: any) {
-      console.error('GitHub Models error:', error.response?.data || error.message);
+      console.error('GitHub Models error:', error.response?.status, error.response?.data || error.message);
       return res.status(error.response?.status || 500).json({
         error: 'GitHub Models API error',
         details: error.response?.data?.error?.message || error.message
@@ -208,7 +219,7 @@ app.post('/api/chat', async (req, res) => {
     });
     res.json(response.data);
   } catch (error: any) {
-    console.error('Chat error:', error.response?.data || error.message);
+    console.error('Chat error:', error.response?.status, error.response?.data || error.message);
     res.status(error.response?.status || 500).json({
       error: 'Chat API error',
       details: error.response?.data || error.message

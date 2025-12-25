@@ -273,12 +273,16 @@ export default function ChatEditor({ model, apiKey, credits, setCredits, onBack 
         }
 
         try {
-            const response = await axios.post('http://localhost:3001/api/chat', {
+            const payload = {
                 model: model.name.includes('(free)') ? model.name.split(' ')[0] : model.name,
                 source: model.source || 'openrouter',
                 messages: contextMessages,
                 apiKey: apiKey
-            });
+            };
+            const payloadSize = JSON.stringify(payload).length;
+            console.log(`[Frontend] Sending chat request. Size: ${payloadSize} bytes (~${(payloadSize / 1024).toFixed(2)} KB)`);
+
+            const response = await axios.post('http://localhost:3001/api/chat', payload);
 
             const assistantMessage: ChatMessage = { role: 'assistant', content: response.data.choices[0].message.content };
             setChatMessages(prev => [...prev, assistantMessage]);
